@@ -31,7 +31,7 @@ void test()
 {
 	std::cout<<"hello world"<<std::endl;
 	int arr[]={1,2,3,4,5};
-	size_t size=sizeof(arr);
+	size_t size=sizeof(arr)/sizeof(arr[0]);
 	sort(arr,size);
 	print(arr,size);
 }
