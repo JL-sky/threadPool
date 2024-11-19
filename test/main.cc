@@ -1,5 +1,5 @@
 #include"threadPool.h"
-#include <iostream> 
+#include<iostream>
 #include <random> 
 std::random_device rd; //真实随机数产生器
 std::mt19937 mt(rd()); //生成计算随机数mt;
@@ -36,7 +36,7 @@ void example() {
   // 创建3个线程的线程池
   ThreadPool pool(3);
   // 初始化线程池
-  //pool.init();
+  // pool.init();
   // 提交乘法操作，总共30个
   for (int i = 1; i < 3; ++i) {
     for (int j = 1; j < 10; ++j) {
@@ -64,3 +64,4 @@ int main()
     example();
     return 0;
 }
+

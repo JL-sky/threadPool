@@ -16,5 +16,4 @@ make
 ```
 # simplethreadpool
 
-# mutiargsthreadpool
 

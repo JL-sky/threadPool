@@ -26,10 +26,6 @@ class ThreadPool{
     }
 
     ~ThreadPool(){
-      shutdown();
-    }
-
-    void shutdown(){
       stop_=true;
       not_empty_cond_.notify_all();
 
