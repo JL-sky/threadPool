@@ -1,137 +1,79 @@
-#include "safequeue.h"
+#include "threadPool.h"
 #include <gtest/gtest.h>
-#include <string>
-
-#if 0
-int add(const int &a, const int &b) { return a + b; }
-
-TEST(testcase1, AddTest) { EXPECT_EQ(add(1, 2), 4); }
-
-int main(int argc, char *argv[]) {
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
-#endif
-
-#if 0
-std::vector<int> x = {1, 2, 3, 4};
-std::vector<int> y = {1, 2, 4, 4};
-
-TEST(VectorTest, demo) {
-    for (int i = 0; i < x.size(); ++i) {
-        EXPECT_EQ(x[i], y[i]) << "Vectors x and y differ at index " << i;
-    }
-}
-#endif
-
-#if 0
-int Foo(int a, int b) {
-    if (a == 0 || b == 0) {
-        throw "don't do that";
-    }
-    int c = a % b;
-    if (c == 0)
-        return b;
-    return Foo(b, c);
-}
-
-TEST(FooTest, HandleZeroInput) {
-    EXPECT_ANY_THROW(Foo(10, 0));
-    EXPECT_THROW(Foo(0, 5), char *);
-}
-#endif
-
-#if 0
-class QueueTest : public testing::Test {
- protected:
-    QueueTest() {
-        q1_.Enqueue(1);
-        q2_.Enqueue(2);
-        q2_.Enqueue(3);
-    }
-
-    Queue<int> q0_;
-    Queue<int> q1_;
-    Queue<int> q2_;
-};
-
-TEST_F(QueueTest, IsEmptyInitially) { EXPECT_EQ(q0_.size(), 0); }
-
-TEST_F(QueueTest, DequeueWorks) {
-    try {
-        int n = q0_.Dequeue();
-        FAIL() << "Expected exception for empty queue";
-    } catch (const std::runtime_error &e) {
-        EXPECT_STREQ(e.what(), "Queue is empty");
-    }
-
-    int n = q1_.Dequeue();
-    EXPECT_EQ(n, 1);
-    EXPECT_EQ(q1_.size(), 0);
-
-    n = q2_.Dequeue();
-    EXPECT_EQ(n, 2);
-    EXPECT_EQ(q2_.size(), 1);
-
-    n = q2_.Dequeue();
-    EXPECT_EQ(n, 3);
-    EXPECT_EQ(q2_.size(), 0);
-}
-#endif
 
 #if 1
-// 假设我们有一个全局资源
-class GlobalResource {
+class ThreadPoolTest : public ::testing::Test {
  public:
-    GlobalResource() { std::cout << "GlobalResource Initialized" << std::endl; }
-
-    ~GlobalResource() { std::cout << "GlobalResource Cleaned up" << std::endl; }
-
-    void DoSomething() {
-        std::cout << "GlobalResource Doing something" << std::endl;
-    }
-};
-
-// 创建一个全局资源实例
-GlobalResource global_resource;
-
-// 在整个测试套件运行前执行初始化
-class GlobalTestSuite : public ::testing::Test {
- public:
-    static void SetUpTestSuite() {
-        // 在所有测试开始之前执行一次
-        std::cout << "GlobalTestSuite SetUpTestSuite()" << std::endl;
-    }
-
-    static void TearDownTestSuite() {
-        // 在所有测试结束之后执行一次
-        std::cout << "GlobalTestSuite TearDownTestSuite()" << std::endl;
-    }
-
     void SetUp() override {
-        // 每个测试前执行
-        std::cout << "GlobalTestSuite SetUp()" << std::endl;
+        std::cout << ">>>> init threadpool...." << std::endl;
+        pool_ = std::make_unique<ThreadPool>(4); // 假设线程池初始化为4个线程
     }
-
     void TearDown() override {
-        // 每个测试后执行
-        std::cout << "GlobalTestSuite TearDown()" << std::endl;
+        std::cout << ">>>> shutdown threadPool...." << std::endl;
+        pool_->ShutDown();
     }
+    std::unique_ptr<ThreadPool> pool_;
 };
-// 测试1
-TEST_F(GlobalTestSuite, Test1) {
-    std::cout << "Running Test1" << std::endl;
-    global_resource.DoSomething(); // 使用全局资源
-    ASSERT_TRUE(true);
+
+// 矩阵乘法
+std::vector<std::vector<int>>
+MatrixMultiply(const std::vector<std::vector<int>> &A,
+               const std::vector<std::vector<int>> &B, ThreadPool &pool) {
+    size_t m = A.size();    // A的行数
+    size_t n = A[0].size(); // A的列数
+    size_t p = B[0].size(); // B的列数
+
+    std::vector<std::vector<int>> C(m, std::vector<int>(p, 0)); // 结果矩阵
+
+    std::vector<std::future<void>> futures;
+
+    // 为结果矩阵中的每个元素提交一个计算任务
+    for (size_t i = 0; i < m; ++i) {
+        for (size_t j = 0; j < p; ++j) {
+            futures.push_back(pool.Submit([i, j, &A, &B, &C, n]() {
+                int sum = 0;
+                for (size_t k = 0; k < n; ++k) {
+                    sum += A[i][k] * B[k][j];
+                }
+                C[i][j] = sum;
+            }));
+        }
+    }
+
+    // 等待所有的任务完成
+    for (auto &future : futures) {
+        future.get();
+    }
+
+    return C;
+}
+// 验证矩阵乘法结果是否正确
+TEST_F(ThreadPoolTest, TestMatrixMultiplication) {
+    // 定义两个矩阵 A 和 B
+    std::vector<std::vector<int>> A = {{1, 2, 3}, {4, 5, 6}};
+    std::vector<std::vector<int>> B = {{7, 8}, {9, 10}, {11, 12}};
+
+    // 计算矩阵 A 和 B 的乘积
+    std::vector<std::vector<int>> C =
+        MatrixMultiply(A, B, *pool_); // 使用 *pool_ 来解引用智能指针
+
+    // 验证结果矩阵 C
+    std::vector<std::vector<int>> expected = {{58, 64}, {139, 154}};
+    EXPECT_EQ(C, expected);
 }
 
-// 测试2
-TEST_F(GlobalTestSuite, Test2) {
-    std::cout << "Running Test2" << std::endl;
-    global_resource.DoSomething(); // 使用全局资源
-    ASSERT_TRUE(true);
-}
+int add(const int &num1, const int &num2) { return num1 + num2; }
+TEST_F(ThreadPoolTest, TestThreadPoolSubmit) {
+    // 提交加法任务
+    auto task1 = pool_->Submit(add, 1, 2); // 1 + 2
+    auto task2 = pool_->Submit(add, 3, 4); // 3 + 4
 
+    // 获取任务的结果
+    int sum = task1.get() + task2.get(); // 获取两个任务的结果
+
+    // 验证最终结果
+    EXPECT_EQ(sum, 10);
+}
 #endif
 
 #if 1
