@@ -15,5 +15,7 @@ make
 ./example/main
 ```
 # simplethreadpool
-
-
+# 编译
+g++ ./main.cpp -o main -lpthread -g
+# 运行
+./main
